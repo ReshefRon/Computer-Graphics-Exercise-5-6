@@ -51,11 +51,6 @@ npx serve .
 * **Clean Real-Time Shadows:** Calibrated the lights and shadows to ensure everything looks realistic and soft, without jagged edges. All lane markings (the red foul line, arrows, and dots) were slightly raised to completely fix any flickering or overlapping glitches on the floor.
 
 
-## External Assets
-
-All geometries, textures, and UI cards are generated entirely procedurally using **Three.js** primitives and the **Canvas 2D HTML5 API**. Camera interaction uses the bundled **OrbitControls** module. No external 3D models, downloaded image textures, or third-party rendering libraries were used.
-
----
 
 ## Submission Screenshots
 

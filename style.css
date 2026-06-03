@@ -1,0 +1,171 @@
+/* ── Reset & base ─────────────────────────────────────────────────────────────
+   Prevent any default margin / scrollbar that would offset the canvas.        */
+body {
+  margin: 0;
+  overflow: hidden;
+}
+
+/* ── Shared card style ────────────────────────────────────────────────────────
+   Base rules shared by #scorecard and #controls-card.  Both cards are
+   absolutely positioned over the WebGL canvas and must not intercept clicks.  */
+.bowling-ui-card {
+  position: absolute;
+  background: rgba(26, 26, 46, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: #ffffff;
+  font-family: Arial, sans-serif;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Scorecard – top-centre ───────────────────────────────────────────────────
+   A horizontal strip of 10 frame cells centred at the top of the viewport.   */
+#scorecard {
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 14px;
+}
+
+#scorecard h2 {
+  margin: 0 0 8px;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+}
+
+/* Row of frame cells */
+.score-frames {
+  display: flex;
+  gap: 3px;
+}
+
+/* Individual frame cell */
+.frame {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+  overflow: hidden;
+  min-width: 44px;
+}
+
+.frame-label {
+  width: 100%;
+  text-align: center;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.35);
+  padding: 2px 0;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Shot boxes inside a frame */
+.frame-shots {
+  display: flex;
+  width: 100%;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.shot-box {
+  flex: 1;
+  text-align: center;
+  padding: 5px 3px;
+  font-size: 12px;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.25);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.shot-box:last-child {
+  border-right: none;
+}
+
+/* Cumulative score total at the bottom of each frame */
+.frame-total {
+  padding: 4px 6px;
+  font-size: 13px;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Controls card – bottom-left ──────────────────────────────────────────────
+   Keyboard shortcut reference panel, dimmed to stay out of focus.             */
+#controls-card {
+  bottom: 20px;
+  left: 20px;
+  padding: 14px 18px;
+}
+
+#controls-card h3 {
+  margin: 0 0 10px;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* One hotkey row: badge + description label */
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 7px;
+  font-size: 13px;
+}
+
+.control-row:last-child {
+  margin-bottom: 0;
+}
+
+/* Keyboard key badge pill */
+.key-badge {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: bold;
+  font-family: monospace;
+  color: #fff;
+  min-width: 22px;
+  text-align: center;
+}
+
+/* Active control description */
+.control-label {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Future / HW06 controls are visually muted to signal they are not yet active */
+.control-label.future {
+  color: rgba(255, 255, 255, 0.25);
+  font-style: italic;
+}
+
+/* ── Neon flicker animation ───────────────────────────────────────────────────
+   Subtle flicker keyframes available for decorative neon elements.
+   Apply with: animation: neonFlicker 3s infinite;                             */
+@keyframes neonFlicker {
+  0%,
+  19%,
+  21%,
+  23%,
+  25%,
+  54%,
+  56%,
+  100% {
+    opacity: 1;
+  }
+
+  20%,
+  24%,
+  55% {
+    opacity: 0.4;
+  }
+}
