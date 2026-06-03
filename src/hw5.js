@@ -216,9 +216,66 @@ function createBowlingPins() {
   });
 }
 
+function createBowlingBall() {
+  const bowlingBallGroup = new THREE.Group();
+
+  // --- Main sphere ---
+  const ballGeo = new THREE.SphereGeometry(0.45, 32, 32);
+  const ballMat = new THREE.MeshPhongMaterial({
+    color: 0x1a2b8a,     // deep cobalt blue – visually distinct against white pins
+    shininess: 90,
+    specular: 0x4444cc   // blue-tinted specular highlight
+  });
+  bowlingBallGroup.add(new THREE.Mesh(ballGeo, ballMat));
+
+  // --- Finger holes ---
+  // Each hole is a matte-black cylinder (r=0.035, h=0.08) embedded in the sphere.
+  // Strategy:
+  //   1. Pick a direction unit vector pointing to the desired surface spot.
+  //   2. Surface point = dir * radius (0.45).
+  //   3. Cylinder centre = surface point − 0.04*dir  (half the height, pushed inward)
+  //      so the outer cap sits flush with the sphere surface.
+  //   4. Rotate: align cylinder's default +Y axis to the inward direction (−dir).
+  const holeGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.08, 16);
+  const holeMat = new THREE.MeshPhongMaterial({ color: 0x111111, shininess: 5 });
+
+  function addFingerHole(dx, dy, dz) {
+    const dir    = new THREE.Vector3(dx, dy, dz).normalize();
+    const inward = dir.clone().negate();
+
+    const hole = new THREE.Mesh(holeGeo, holeMat);
+    // place centre half-depth inside surface so cap is flush
+    hole.position.copy(dir).multiplyScalar(0.45).addScaledVector(inward, 0.04);
+    // tilt cylinder axis to point toward sphere centre
+    hole.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), inward);
+
+    bowlingBallGroup.add(hole);
+  }
+
+  // Two adjacent holes (ring + middle finger) and one offset thumb hole
+  addFingerHole( 0.25,  0.93,  0.17);  // ring finger  – upper right
+  addFingerHole(-0.25,  0.93,  0.17);  // middle finger – upper left (adjacent)
+  addFingerHole( 0.00,  0.87, -0.30);  // thumb         – offset toward bowler
+
+  // --- Positioning ---
+  // Lane top Y=0.1, ball radius=0.45 → centre at Y=0.55 to sit flush on approach
+  bowlingBallGroup.position.set(0, 0.55, 12);
+
+  // --- Shadows: walk every mesh in the group in one pass ---
+  bowlingBallGroup.traverse(child => {
+    if (child.isMesh) {
+      child.castShadow    = true;
+      child.receiveShadow = true;
+    }
+  });
+
+  scene.add(bowlingBallGroup);
+}
+
 // Create all elements
 createBowlingLane();
 createBowlingPins();
+createBowlingBall();
 
 // Set camera position for bowler's perspective
 const cameraTranslate = new THREE.Matrix4();
