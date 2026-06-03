@@ -15,11 +15,22 @@ scene.add(ambientLight);
 
 const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
 directionalLight.position.set(5, 20, -20);
+directionalLight.target.position.set(0, 0, -58.5);
+scene.add(directionalLight.target);
 scene.add(directionalLight);
 
 // Enable shadows
 renderer.shadowMap.enabled = true;
 directionalLight.castShadow = true;
+directionalLight.shadow.camera.left = -5;
+directionalLight.shadow.camera.right = 5;
+directionalLight.shadow.camera.top = 25;
+directionalLight.shadow.camera.bottom = -5;
+directionalLight.shadow.camera.near = 0.5;
+directionalLight.shadow.camera.far = 100; 
+
+directionalLight.shadow.mapSize.width = 2048;
+directionalLight.shadow.mapSize.height = 2048;
 
 function degrees_to_radians(degrees) {
   var pi = Math.PI;
@@ -101,23 +112,16 @@ function createBowlingLane() {
     scene.add(arrow);
   });
 
-  // Approach dots – 10 dots in a 4-3-2-1 triangular formation.
-  // Wide end (4 dots) sits near the bowler; single tip dot sits near the foul line,
-  // acting as a visual funnel guiding the bowler toward the centre.
+  // Approach dots – two straight rows of 5, parallel to the foul line.
+  // Row at Z=7 and Z=12; five dots symmetric around X=0 at 0.5-unit spacing.
   const dotGeo = new THREE.CircleGeometry(0.06, 16);
   const dotMat = new THREE.MeshPhongMaterial({
     color: 0x8B4513,  // Saddle brown
     shininess: 20,
     side: THREE.DoubleSide
   });
-  const dotRows = [
-    { z: 12, xs: [-0.75, -0.25, 0.25, 0.75] },  // row 1 – 4 dots (near bowler)
-    { z:  9, xs: [-0.5,  0,    0.5        ] },   // row 2 – 3 dots
-    { z:  6, xs: [-0.25, 0.25             ] },   // row 3 – 2 dots
-    { z:  3, xs: [0                       ] },   // row 4 – 1 dot (near foul line)
-  ];
-  dotRows.forEach(({ z, xs }) => {
-    xs.forEach(x => {
+  [7, 12].forEach(z => {
+    [-1.0, -0.5, 0, 0.5, 1.0].forEach(x => {
       const dot = new THREE.Mesh(dotGeo, dotMat);
       dot.rotation.x = -Math.PI / 2;
       dot.position.set(x, 0.101, z);
@@ -128,8 +132,93 @@ function createBowlingLane() {
   });
 }
 
+function createBowlingPins() {
+  
+  const deckGeo = new THREE.BoxGeometry(3.5, 0.01, 3.5); 
+  const deckMat = new THREE.MeshPhongMaterial({ color: 0xE8D5A3, shininess: 30 });
+  const deck = new THREE.Mesh(deckGeo, deckMat);
+  
+  
+  deck.position.set(0, 0.101, -58.25); 
+  deck.receiveShadow = true;
+  scene.add(deck);
+
+  // Half cross-section profile for LatheGeometry.
+  // Each Vector2 is (radius, height) in pin-local space.
+  // First/last point at radius=0 closes the bottom and top caps naturally.
+  const pinProfile = [
+    new THREE.Vector2(0.00, 0.00),   // base centre – closes bottom
+    new THREE.Vector2(0.09, 0.00),   // base rim
+    new THREE.Vector2(0.11, 0.03),   // lower body
+    new THREE.Vector2(0.17, 0.12),   // body widening
+    new THREE.Vector2(0.195, 0.25),  // approaching belly
+    new THREE.Vector2(0.20,  0.35),  // widest point – belly
+    new THREE.Vector2(0.195, 0.45),  // past belly, narrowing
+    new THREE.Vector2(0.17,  0.58),  // upper body
+    new THREE.Vector2(0.13,  0.72),  // narrowing toward neck
+    new THREE.Vector2(0.09,  0.85),  // neck – narrowest point
+    new THREE.Vector2(0.095, 0.92),  // base of head
+    new THREE.Vector2(0.13,  1.02),  // head widening
+    new THREE.Vector2(0.135, 1.10),  // head peak
+    new THREE.Vector2(0.11,  1.19),  // top of head, tapering
+    new THREE.Vector2(0.04,  1.24),  // near tip
+    new THREE.Vector2(0.00,  1.25),  // tip – closes top
+  ];
+
+  const pinBodyGeo = new THREE.LatheGeometry(pinProfile, 24);
+  const pinBodyMat = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 100 });
+  const pinBody = new THREE.Mesh(pinBodyGeo, pinBodyMat);
+  pinBody.castShadow = true;
+  pinBody.receiveShadow = true;
+
+  // Red neck stripe – thin cylinder radius 0.107, just wider than the neck (0.09),
+  // so it sits proud of the pin surface without Z-fighting. Centred at pin-local y=0.875.
+  const stripeGeo = new THREE.CylinderGeometry(0.107, 0.107, 0.075, 24);
+  const stripeMat = new THREE.MeshPhongMaterial({ color: 0xcc0000, shininess: 60 });
+  const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+  stripe.position.y = 0.875;
+  stripe.castShadow = true;
+  stripe.receiveShadow = true;
+
+  // Build template group ONCE; .clone() creates independent copies for each pin
+  const basePinGroup = new THREE.Group();
+  basePinGroup.add(pinBody);
+  basePinGroup.add(stripe);
+
+  // Standard 10-pin triangular formation (from assignment spec).
+  // Lane top is Y=0.1; pin base is at local Y=0, so world PIN_Y=0.1 is flush.
+  const PIN_Y = 0.1;
+  const pinPositions = [
+    { x:  0.0, z: -57.000 },  // 1 – head pin (centre, aligns with approach-dot funnel)
+    { x: -0.5, z: -57.866 },  // 2
+    { x:  0.5, z: -57.866 },  // 3
+    { x: -1.0, z: -58.732 },  // 4
+    { x:  0.0, z: -58.732 },  // 5
+    { x:  1.0, z: -58.732 },  // 6
+    { x: -1.5, z: -59.598 },  // 7
+    { x: -0.5, z: -59.598 },  // 8
+    { x:  0.5, z: -59.598 },  // 9
+    { x:  1.5, z: -59.598 },  // 10
+  ];
+
+  pinPositions.forEach(({ x, z }) => {
+    const pin = basePinGroup.clone();
+    pin.position.set(x, PIN_Y, z);
+    // traverse() walks every node in the cloned subtree (body + stripe) and
+    // sets shadow flags explicitly, rather than relying on clone() propagation.
+    pin.traverse(child => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+    scene.add(pin);
+  });
+}
+
 // Create all elements
 createBowlingLane();
+createBowlingPins();
 
 // Set camera position for bowler's perspective
 const cameraTranslate = new THREE.Matrix4();
