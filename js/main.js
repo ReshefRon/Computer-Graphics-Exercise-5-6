@@ -45,6 +45,7 @@ const gameState = {
   cumulativeTotals:   Array(10).fill(null),
   pinsStanding:       Array(10).fill(true),  // true = upright, false = knocked down
   pinsFallenThisRoll: 0,
+  isGutterBall:       false,  // set true when ball enters gutter; blocks pin collisions
   angle:              0,     // current aiming angle in radians
   angleDirection:     1,     // pendulum swing direction (1 = right, -1 = left)
   aimingArrow:        null   // THREE.ArrowHelper attached to ball group
@@ -241,6 +242,9 @@ const PIN_PROPAGATION_RADIUS = 0.85;   // neighbor topple radius (1 unit centre-
 
 // ── Pin collision detection ───────────────────────────────────────────────────
 function checkCollisions() {
+  // Gutter balls travel outside the pin deck — skip all collision checks
+  if (gameState.isGutterBall) return;
+
   pinsArray.forEach(pin => {
     // Skip pins already in motion or already down
     if (!gameState.pinsStanding[pin.index] || pin.isToppling) return;
@@ -343,13 +347,10 @@ function updatePhysics(deltaTime) {
   // 4. Gutter Snap: only triggers after the ball crosses the foul line (Z <= 0)
   if (ball.mesh.position.z <= 0 && Math.abs(ball.mesh.position.x) >= 1.75) {
     const side = ball.mesh.position.x > 0 ? 1 : -1;
-    ball.mesh.position.x = side * 2.0;  // snap to gutter centre channel
-    // Gradual sinking: Y goes from 0.22 at Z=0 down to -0.12 at Z=-60,
-    // matching the slight forward tilt applied to the gutter geometry
-    const laneLength = 60.0;
-    const progress   = Math.min(Math.max(ball.mesh.position.z / -laneLength, 0), 1);
-    ball.mesh.position.y = 0.22 - (progress * 0.34);
-    gameState.ballVelocity.x = 0;       // lock out lateral drift
+    ball.mesh.position.x = side * 2.1;   // centre of the expanded 0.7-wide gutter channel
+    ball.mesh.position.y = 0.45;         // matches original ball centre height from BowlingBall
+    gameState.ballVelocity.x  = 0;       // lock out lateral drift
+    gameState.isGutterBall    = true;    // block pin collisions for the rest of this roll
   }
 
   // 5. End-of-Roll: ball reached the pit boundary or came to a full stop
@@ -524,6 +525,7 @@ function resetBallAndPins(fullNewGame) {
   ball.mesh.position.set(0, 0.45, 12);
   ball.mesh.rotation.set(0, 0, 0);
   gameState.ballVelocity.set(0, 0, 0);
+  gameState.isGutterBall = false;
   gameState.phase  = 'positioning';
   controls.enabled = true;
   // Return camera to the default aiming perspective and clear any toggle state
