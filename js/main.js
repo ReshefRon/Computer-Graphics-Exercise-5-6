@@ -29,15 +29,17 @@ import ScorecardUI       from './components/ScorecardUI.js';
 const clock = new THREE.Clock();
 
 const gameState = {
-  phase:          'aiming',
-  currentFrame:   1,
-  currentRoll:    1,
-  powerValue:     0,
-  powerDirection: 1,
-  ballSpeedFactor: 35,
-  ballVelocity:   new THREE.Vector3(0, 0, 0),
-  scores:         Array.from({ length: 10 }, () => []),
-  cumulativeTotals: Array(10).fill(null)
+  phase:              'aiming',
+  currentFrame:       1,
+  currentRoll:        1,
+  powerValue:         0,
+  powerDirection:     1,
+  ballSpeedFactor:    35,
+  ballVelocity:       new THREE.Vector3(0, 0, 0),
+  scores:             Array.from({ length: 10 }, () => []),
+  cumulativeTotals:   Array(10).fill(null),
+  pinsStanding:       Array(10).fill(true),  // true = upright, false = knocked down
+  pinsFallenThisRoll: 0
 };
 
 // ── Renderer ──────────────────────────────────────────────────────────────────
@@ -114,6 +116,16 @@ scene.add(sign.mesh);
 scene.add(pins.mesh);
 scene.add(ball.mesh);
 
+// Wrap each pin Group child with per-pin collision and animation state.
+// pins.mesh.children[i] maps to pin positions in the same order as PinFormation._placeAllPins().
+const pinsArray = pins.mesh.children.map((pinMesh, index) => ({
+  mesh:            pinMesh,
+  index:           index,
+  isToppling:      false,
+  toppleDirection: new THREE.Vector3(),
+  toppleRotation:  0
+}));
+
 // ── Orbit controls ────────────────────────────────────────────────────────────
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping      = true;
@@ -164,10 +176,82 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// ── Collision constants ───────────────────────────────────────────────────────
+const BALL_RADIUS            = 0.35;
+const PIN_RADIUS             = 0.17;   // max profile radius from LatheGeometry (~0.17 at belly)
+const COLLISION_THRESHOLD    = BALL_RADIUS + PIN_RADIUS;  // ~0.52 units
+const PIN_PROPAGATION_RADIUS = 0.85;   // neighbor topple radius (1 unit centre-to-centre spacing)
+
+// ── Pin collision detection ───────────────────────────────────────────────────
+function checkCollisions() {
+  pinsArray.forEach(pin => {
+    // Skip pins already in motion or already down
+    if (!gameState.pinsStanding[pin.index] || pin.isToppling) return;
+
+    // Horizontal 2D distance on the X/Z plane
+    const dx   = ball.mesh.position.x - pin.mesh.position.x;
+    const dz   = ball.mesh.position.z - pin.mesh.position.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+
+    if (dist < COLLISION_THRESHOLD) {
+      // Topple this pin away from the ball's incoming direction
+      pin.isToppling = true;
+      pin.toppleDirection.copy(pin.mesh.position).sub(ball.mesh.position).setY(0).normalize();
+
+      // Pin-to-pin propagation: immediately tip over close standing neighbors
+      pinsArray.forEach(neighbor => {
+        if (
+          gameState.pinsStanding[neighbor.index] &&
+          !neighbor.isToppling &&
+          neighbor.index !== pin.index
+        ) {
+          const distToNeighbor = pin.mesh.position.distanceTo(neighbor.mesh.position);
+          if (distToNeighbor < PIN_PROPAGATION_RADIUS) {
+            neighbor.isToppling = true;
+            neighbor.toppleDirection
+              .copy(neighbor.mesh.position)
+              .sub(pin.mesh.position)
+              .setY(0)
+              .normalize();
+          }
+        }
+      });
+    }
+  });
+}
+
+// ── Pin toppling animation ────────────────────────────────────────────────────
+function animatePins(deltaTime) {
+  pinsArray.forEach(pin => {
+    if (!pin.isToppling) return;
+
+    pin.toppleRotation += deltaTime * 5.0;
+
+    // Rotate around the axis perpendicular to the topple direction
+    pin.mesh.rotation.z = -pin.toppleDirection.x * pin.toppleRotation;
+    pin.mesh.rotation.x =  pin.toppleDirection.z * pin.toppleRotation;
+
+    // Lower the base as the pin tilts so it visually settles on the deck
+    pin.mesh.position.y = Math.max(0.1 - (pin.toppleRotation * 0.1), -0.1);
+
+    // Fully fallen – past 90° of rotation
+    if (pin.toppleRotation >= Math.PI / 2) {
+      pin.isToppling = false;
+      gameState.pinsStanding[pin.index] = false;
+      gameState.pinsFallenThisRoll++;
+      pins.mesh.remove(pin.mesh);   // detach from the formation group
+      console.log("Pin " + (pin.index + 1) + " is down.");
+    }
+  });
+}
+
 // ── Physics ───────────────────────────────────────────────────────────────────
 function updatePhysics(deltaTime) {
   // 1. Apply Motion: advance position by velocity × dt
   ball.mesh.position.addScaledVector(gameState.ballVelocity, deltaTime);
+
+  // Check for pin hits on every frame the ball is in motion
+  checkCollisions();
 
   // 2. Realistic Rolling Rotation: spin the ball around X-axis proportional to speed
   const ballRadius         = 0.35;
@@ -229,6 +313,9 @@ function animate() {
       gameState.powerDirection = 1;
     }
   }
+
+  // Animate toppling pins every frame regardless of current phase
+  animatePins(deltaTime);
 
   scorecardUI.updatePowerMeterUI(gameState.phase, gameState.powerValue);
 
