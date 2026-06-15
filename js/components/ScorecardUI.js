@@ -20,6 +20,7 @@ export default class ScorecardUI {
   constructor() {
     this._buildScorecard();
     this._buildControlsCard();
+    this._buildPowerMeter();
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
@@ -69,15 +70,71 @@ export default class ScorecardUI {
 
       <div class="control-row">
         <span class="key-badge">O</span>
-        <span class="control-label">Toggle orbit camera</span>
+        <span class="control-label">Toggle Orbit Camera</span>
       </div>
 
       <div class="control-row">
         <span class="key-badge">C</span>
-        <span class="control-label">Front view – neon sign</span>
+        <span class="control-label">Front View</span>
       </div>
 
-      `;
+      <div class="control-row">
+        <span class="key-badge">← →</span>
+        <span class="control-label">Aim Ball</span>
+      </div>
+
+      <div class="control-row">
+        <span class="key-badge">Space</span>
+        <span class="control-label">Set Power / Launch</span>
+      </div>
+
+      <div class="control-row">
+        <span class="key-badge">R</span>
+        <span class="control-label">Reset Game</span>
+      </div>
+    `;
     document.body.appendChild(controlsCard);
+  }
+
+  _buildPowerMeter() {
+    const container = document.createElement('div');
+    container.id = 'power-meter-container';
+    container.style.position    = 'fixed';
+    container.style.right       = '40px';
+    container.style.top         = '50%';
+    container.style.transform   = 'translateY(-50%)';
+    container.style.width       = '30px';
+    container.style.height      = '200px';
+    container.style.border      = '2px solid white';
+    container.style.background  = 'rgba(0,0,0,0.6)';
+    container.style.borderRadius = '6px';
+    container.style.display     = 'none';
+    container.style.zIndex      = '1000';
+
+    const fill = document.createElement('div');
+    fill.id = 'power-bar-fill';
+    fill.style.position   = 'absolute';
+    fill.style.bottom     = '0';
+    fill.style.width      = '100%';
+    fill.style.background = 'linear-gradient(to top, #ffcc00, #ff3300)';
+    fill.style.height     = '0%';
+    fill.style.transition = 'none';
+
+    container.appendChild(fill);
+    document.body.appendChild(container);
+
+    this._powerContainer = container;
+    this._powerFill      = fill;
+  }
+
+  // ── Public methods ─────────────────────────────────────────────────────────
+
+  updatePowerMeterUI(phase, value) {
+    if (phase === 'power') {
+      this._powerContainer.style.display = 'block';
+      this._powerFill.style.height = (value * 100) + '%';
+    } else {
+      this._powerContainer.style.display = 'none';
+    }
   }
 }

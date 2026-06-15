@@ -26,6 +26,20 @@ import PinFormation      from './components/PinFormation.js';
 import BowlingBall       from './components/BowlingBall.js';
 import ScorecardUI       from './components/ScorecardUI.js';
 
+const clock = new THREE.Clock();
+
+const gameState = {
+  phase:          'aiming',
+  currentFrame:   1,
+  currentRoll:    1,
+  powerValue:     0,
+  powerDirection: 1,
+  ballSpeedFactor: 35,
+  ballVelocity:   new THREE.Vector3(0, 0, 0),
+  scores:         Array.from({ length: 10 }, () => []),
+  cumulativeTotals: Array(10).fill(null)
+};
+
 // ── Renderer ──────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -93,7 +107,7 @@ const pins = new PinFormation();
 const ball = new BowlingBall();
 
 /* ScorecardUI only injects DOM elements; it has no scene-graph mesh. */
-new ScorecardUI();
+const scorecardUI = new ScorecardUI();
 
 scene.add(lane.mesh);
 scene.add(sign.mesh);
@@ -111,20 +125,37 @@ controls.maxDistance        = 150;
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.code === 'KeyO') {
-    /* Toggle orbit camera interaction on / off. */
     controls.enabled = !controls.enabled;
   }
 
   if (e.code === 'KeyC') {
-    /*
-     * Snap to a frontal view centred on the neon sign.
-     * controls.reset() first returns to the saved initial state, then we
-     * immediately override position and target to the desired viewpoint.
-     */
     controls.reset();
     camera.position.set(0, 4.0, -18);
     controls.target.set(0, 4.0, -30);
     controls.update();
+  }
+
+  if (e.code === 'ArrowLeft' && gameState.phase === 'aiming') {
+    ball.mesh.position.x = Math.max(-1.5, ball.mesh.position.x - 0.1);
+  }
+
+  if (e.code === 'ArrowRight' && gameState.phase === 'aiming') {
+    ball.mesh.position.x = Math.min(1.5, ball.mesh.position.x + 0.1);
+  }
+
+  if (e.code === 'Space') {
+    if (gameState.phase === 'aiming') {
+      gameState.phase          = 'power';
+      gameState.powerValue     = 0;
+      gameState.powerDirection = 1;
+      controls.enabled         = false;
+    } else if (gameState.phase === 'power') {
+      gameState.phase = 'rolling';
+    }
+  }
+
+  if (e.code === 'KeyR') {
+    console.log("Reset triggered");
   }
 });
 
@@ -142,6 +173,21 @@ window.addEventListener('resize', () => {
  */
 function animate() {
   requestAnimationFrame(animate);
+  const deltaTime = clock.getDelta();
+
+  if (gameState.phase === 'power') {
+    gameState.powerValue += gameState.powerDirection * deltaTime * 2.0;
+    if (gameState.powerValue >= 1.0) {
+      gameState.powerValue     = 1.0;
+      gameState.powerDirection = -1;
+    } else if (gameState.powerValue <= 0.0) {
+      gameState.powerValue     = 0.0;
+      gameState.powerDirection = 1;
+    }
+  }
+
+  scorecardUI.updatePowerMeterUI(gameState.phase, gameState.powerValue);
+
   controls.update();
   renderer.render(scene, camera);
 }
